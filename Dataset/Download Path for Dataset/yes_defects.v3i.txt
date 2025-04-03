@@ -1,0 +1,7 @@
+!pip install roboflow
+
+from roboflow import Roboflow
+rf = Roboflow(api_key="HEIVkitsKN5GrtOiJhcI")
+project = rf.workspace("five-defects").project("yes_defects")
+version = project.version(3)
+dataset = version.download("coco")

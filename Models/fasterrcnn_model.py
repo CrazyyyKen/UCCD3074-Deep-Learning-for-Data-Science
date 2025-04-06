@@ -1087,7 +1087,140 @@ model.eval()  # Set to evaluation mode
 print("Model loaded successfully!")
 
 """# 5. Evaluating Model + Visualizing the Results"""
+import numpy as np
+from PIL import Image, ImageDraw
+import matplotlib.patches as patches
+from torchvision.ops import box_iou
+from tqdm import tqdm
 
+# Function to calculate mAP
+def calculate_map(pred_boxes, pred_labels, pred_scores, gt_boxes, gt_labels, iou_threshold=0.5):
+    """
+    Calculate mean Average Precision for object detection
+    """
+    # Initialize precision and recall values for each class
+    average_precisions = {}
+
+    # Process each class
+    for c in range(1, num_classes):  # Skip background class (0)
+        # Get predictions and ground truths for this class
+        class_pred_indices = (pred_labels == c).nonzero(as_tuple=True)[0]
+        class_gt_indices = (gt_labels == c).nonzero(as_tuple=True)[0]
+
+        if len(class_gt_indices) == 0:
+            continue
+
+        # If no predictions for this class, AP = 0
+        if len(class_pred_indices) == 0:
+            average_precisions[c] = 0
+            continue
+
+        # Get the predictions for this class
+        class_pred_boxes = pred_boxes[class_pred_indices]
+        class_pred_scores = pred_scores[class_pred_indices]
+
+        # Sort predictions by score
+        score_sorted_indices = torch.argsort(class_pred_scores, descending=True)
+        class_pred_boxes = class_pred_boxes[score_sorted_indices]
+        class_pred_scores = class_pred_scores[score_sorted_indices]
+
+        # Get ground truth for this class
+        class_gt_boxes = gt_boxes[class_gt_indices]
+
+        # Calculate IoU between predictions and ground truth
+        ious = box_iou(class_pred_boxes, class_gt_boxes)
+
+        # Initialize variables for precision-recall calculation
+        tp = torch.zeros(len(class_pred_boxes))
+        fp = torch.zeros(len(class_pred_boxes))
+        gt_matched = torch.zeros(len(class_gt_boxes))
+
+        # For each prediction
+        for pred_idx in range(len(class_pred_boxes)):
+            # Find the best matching ground truth
+            max_iou, max_idx = torch.max(ious[pred_idx], dim=0)
+
+            # If IoU exceeds threshold and the ground truth hasn't been matched
+            if max_iou >= iou_threshold and gt_matched[max_idx] == 0:
+                tp[pred_idx] = 1
+                gt_matched[max_idx] = 1
+            else:
+                fp[pred_idx] = 1
+
+        # Calculate cumulative precision and recall
+        cumulative_tp = torch.cumsum(tp, dim=0)
+        cumulative_fp = torch.cumsum(fp, dim=0)
+        precision = cumulative_tp / (cumulative_tp + cumulative_fp)
+        recall = cumulative_tp / len(class_gt_boxes)
+
+        # Calculate AP using 11-point interpolation
+        ap = 0.0
+        for t in np.arange(0.0, 1.1, 0.1):
+            if torch.sum(recall >= t) == 0:
+                p = 0
+            else:
+                p = torch.max(precision[recall >= t])
+            ap += p / 11.0
+
+        average_precisions[c] = ap.item()
+
+    # Calculate mAP
+    if len(average_precisions) > 0:
+        mAP = sum(average_precisions.values()) / len(average_precisions)
+    else:
+        mAP = 0.0
+
+    return mAP, average_precisions
+
+# Function to visualize predictions
+def visualize_predictions(image, pred_boxes, pred_labels, pred_scores, gt_boxes=None, gt_labels=None, score_threshold=0.5):
+    """
+    Visualize predictions and ground truth boxes on the image
+    """
+    fig, ax = plt.subplots(1, figsize=(12, 9))
+    ax.imshow(image)
+
+    # Define colors for different classes (can be extended for more classes)
+    colors = ['r', 'g', 'b', 'c', 'm', 'y']
+
+    # Draw predicted boxes
+    for box, label, score in zip(pred_boxes, pred_labels, pred_scores):
+        if score < score_threshold:
+            continue
+
+        x1, y1, x2, y2 = box.cpu().numpy()
+        width = x2 - x1
+        height = y2 - y1
+
+        # Create rectangle patch
+        color_idx = (label.item() - 1) % len(colors)
+        rect = patches.Rectangle((x1, y1), width, height, linewidth=2,
+                                 edgecolor=colors[color_idx], facecolor='none')
+        ax.add_patch(rect)
+
+        # Add label and score
+        plt.text(x1, y1, f'Class {label.item()}: {score.item():.2f}',
+                 fontsize=10, bbox=dict(facecolor=colors[color_idx], alpha=0.5))
+
+    # Draw ground truth boxes if provided
+    if gt_boxes is not None and gt_labels is not None:
+        for box, label in zip(gt_boxes, gt_labels):
+            x1, y1, x2, y2 = box.cpu().numpy()
+            width = x2 - x1
+            height = y2 - y1
+
+            # Create rectangle patch with dashed line
+            color_idx = (label.item() - 1) % len(colors)
+            rect = patches.Rectangle((x1, y1), width, height, linewidth=2,
+                                   edgecolor=colors[color_idx], facecolor='none', linestyle='--')
+            ax.add_patch(rect)
+
+            # Add ground truth label
+            plt.text(x1, y1-15, f'GT Class {label.item()}',
+                   fontsize=10, bbox=dict(facecolor='white', alpha=0.5))
+
+    plt.axis('off')
+    return fig
 # Function to evaluate model on test dataset
 def evaluate_model(model, data_loader, device):
     model.eval()

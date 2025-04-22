@@ -178,9 +178,10 @@ def analyze_class_distribution(dataset, dataset_name="Dataset"):
 
     # Count instances per class
     for _, target in dataset:
-        for label in target['labels']:
-            class_name = IDX_TO_CLASS[label.item()]
-            class_counts[class_name] += 1
+        if 'labels' in target:  # Only proceed if labels exist
+            for label in target['labels']:
+                class_name = IDX_TO_CLASS[label.item()]
+                class_counts[class_name] += 1
 
     # Calculate statistics
     total_samples = sum(class_counts.values())

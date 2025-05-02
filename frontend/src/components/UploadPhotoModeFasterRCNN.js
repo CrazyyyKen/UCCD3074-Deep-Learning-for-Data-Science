@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from "react";
 import {
   Card,
   Form,
@@ -7,18 +7,20 @@ import {
   Col,
   Spinner,
   Table,
-  Alert
-} from 'react-bootstrap';
-import DefectCanvas from './DefectCanvas';
-import useWebSocket from '../hooks/useWebSocket';
+  Alert,
+} from "react-bootstrap";
+import DefectCanvas from "./DefectCanvas";
+import useWebSocket from "../hooks/useWebSocket";
 
-export default function UploadPhotoMode() {
+export default function UploadPhotoModeFasterRCNN() {
   const fileRef = useRef();
-  const { messages, sendMessage } = useWebSocket('ws://localhost:8000/ws');
-  const [imageUrl, setImageUrl]       = useState(null);
-  const [boxes, setBoxes]             = useState([]);
+  const { messages, sendMessage } = useWebSocket(
+    "ws://localhost:8000/ws_photo_fasterrcnn"
+  );
+  const [imageUrl, setImageUrl] = useState(null);
+  const [boxes, setBoxes] = useState([]);
   const [currentReqId, setCurrentReqId] = useState(null);
-  const [loading, setLoading]         = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // preview new file & reset
   const handleFile = (e) => {
@@ -41,15 +43,16 @@ export default function UploadPhotoMode() {
     setCurrentReqId(reqId);
     setBoxes([]);
     setLoading(true);
-    sendMessage({ image: imageUrl, reqId });
+    sendMessage({ mode: "photo_fasterrcnn", image: imageUrl, reqId });
   };
 
   // apply only the matching response
   useEffect(() => {
     if (!currentReqId) return;
     const msg = messages
-      .slice().reverse()
-      .find(m => m.reqId === currentReqId);
+      .slice()
+      .reverse()
+      .find((m) => m.reqId === currentReqId);
 
     if (msg && msg.results) {
       setBoxes(msg.results);
@@ -59,11 +62,11 @@ export default function UploadPhotoMode() {
 
   return (
     <Card>
-      <Card.Header>Upload Image</Card.Header>
+      <Card.Header>Upload Photo</Card.Header>
       <Card.Body>
         <Form>
           <Form.Group controlId="formFile">
-            <Form.Label>Choose a shampoo-bottle photo</Form.Label>
+            <Form.Label>Choose a shampoo bottle photo</Form.Label>
             <Form.Control
               type="file"
               accept="image/*"
@@ -74,27 +77,29 @@ export default function UploadPhotoMode() {
         </Form>
 
         <Row className="mt-3">
-          <Col md={8} style={{ position: 'relative' }}>
+          <Col md={8} style={{ position: "relative" }}>
             {imageUrl && (
-              <div style={{ position: 'relative', width: 512, height: 512 }}>
+              <div style={{ position: "relative", width: 512, height: 512 }}>
                 <img
                   src={imageUrl}
                   alt="preview"
                   width={512}
                   height={512}
-                  style={{ display: 'block' }}
+                  style={{ display: "block" }}
                 />
                 <DefectCanvas boxes={boxes} width={512} height={512} />
                 {loading && (
                   <div
                     style={{
-                      position: 'absolute',
-                      top: 0, left: 0,
-                      width: 512, height: 512,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: 'rgba(0,0,0,0.3)'
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: 512,
+                      height: 512,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: "rgba(0,0,0,0.3)",
                     }}
                   >
                     <Spinner animation="border" variant="light" />
@@ -111,7 +116,7 @@ export default function UploadPhotoMode() {
           onClick={runDetect}
           disabled={!imageUrl || loading}
         >
-          {loading ? 'Detecting…' : 'Run Detection'}
+          {loading ? "Detecting…" : "Run Detection"}
         </Button>
 
         {/* no-empty alert */}
@@ -136,7 +141,9 @@ export default function UploadPhotoMode() {
                 <tr key={i}>
                   <td>{i + 1}</td>
                   <td>{b.label}</td>
-                  <td>{b.score != null ? `${(b.score * 100).toFixed(1)}%` : '–'}</td>
+                  <td>
+                    {b.score != null ? `${(b.score * 100).toFixed(1)}%` : "–"}
+                  </td>
                 </tr>
               ))}
             </tbody>

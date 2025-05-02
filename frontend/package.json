@@ -8,6 +8,7 @@
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
     "bootstrap": "^5.3.5",
+    "event-source-polyfill": "^1.0.31",
     "konva": "^9.3.20",
     "react": "^19.1.0",
     "react-bootstrap": "^2.10.9",

@@ -1,90 +1,91 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { Card, Form } from 'react-bootstrap';
-import DefectCanvas from './DefectCanvas';
-import useWebSocket from '../hooks/useWebSocket';
+import React, { useRef, useState, useEffect } from "react";
+import { Card, Form } from "react-bootstrap";
+import useWebSocket from "../hooks/useWebSocket";
+import DefectCanvas from "./DefectCanvas";
 
 export default function UploadVideoMode() {
   const fileRef = useRef();
   const videoRef = useRef();
-  const canvasRef = useRef();
-  const { messages, sendMessage } = useWebSocket('ws://localhost:8000/ws');
-  const [boxes, setBoxes]   = useState([]);
+  const captureRef = useRef();
+  const { messages, sendMessage } = useWebSocket(
+    "ws://localhost:8000/ws_video"
+  );
+  const [boxes, setBoxes] = useState([]);
 
-  // 1) preview the chosen video
-  const handleFile = (e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-    const url = URL.createObjectURL(f);
-    videoRef.current.src = url;
-  };
-
-  // 2) push detections into state
+  // Update overlay whenever new WS message arrives
   useEffect(() => {
-    if (!messages.length) return;
+    if (messages.length === 0) return;
     const last = messages[messages.length - 1];
     if (last.results) {
       setBoxes(last.results);
     }
   }, [messages]);
 
-  // 3) when the video plays, grab frames every 100ms
+  // Start/stop the frame‐capture loop
+  const [running, setRunning] = useState(false);
   useEffect(() => {
-    const video  = videoRef.current;
-    const canvas = canvasRef.current;
-    let intervalId;
+    let id;
+    if (running) {
+      id = setInterval(() => {
+        const video = videoRef.current;
+        const canvas = captureRef.current;
+        if (!video || video.paused || video.ended) return;
+        // draw the video into a 512×512 canvas
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, 512, 512);
+        // send as JPEG
+        const dataUrl = canvas.toDataURL("image/jpeg");
+        sendMessage({ image: dataUrl });
+      }, 200); // ~5 fps
+    }
+    return () => clearInterval(id);
+  }, [running, sendMessage]);
 
-    const captureFrame = () => {
-      if (video.paused || video.ended) return;
-      canvas.width  = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0,
-                    canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg');
-      sendMessage({ image: dataUrl });
-    };
-
-    const onPlay = () => {
-      intervalId = setInterval(captureFrame, 100);
-    };
-    const onPause = () => clearInterval(intervalId);
-    const onEnded = () => clearInterval(intervalId);
-
-    video.addEventListener('play',  onPlay);
-    video.addEventListener('pause', onPause);
-    video.addEventListener('ended', onEnded);
-
-    return () => {
-      clearInterval(intervalId);
-      video.removeEventListener('play',  onPlay);
-      video.removeEventListener('pause', onPause);
-      video.removeEventListener('ended', onEnded);
-    };
-  }, [sendMessage]);
+  // On video file select: preview, autoplay, start sending
+  const handleFile = (e) => {
+    const f = fileRef.current.files[0];
+    if (!f) return;
+    const url = URL.createObjectURL(f);
+    videoRef.current.src = url;
+    videoRef.current.muted = true;
+    videoRef.current.play();
+    setRunning(true);
+  };
 
   return (
     <Card>
-      <Card.Header>Upload Video</Card.Header>
+      <Card.Header>Upload Video (YOLO)</Card.Header>
       <Card.Body>
         <Form.Group controlId="formVideo">
           <Form.Label>Choose a shampoo‐bottle video</Form.Label>
           <Form.Control
             type="file"
             accept="video/*"
-            onChange={handleFile}
             ref={fileRef}
+            onChange={handleFile}
           />
         </Form.Group>
 
-        <div style={{ position:'relative', width:512, height:512, marginTop: '1rem' }}>
+        <div
+          style={{
+            position: "relative",
+            width: 512,
+            height: 512,
+            marginTop: "1rem",
+          }}
+        >
           <video
             ref={videoRef}
             width={512}
             height={512}
+            autoPlay
+            muted
             controls
-            style={{ display: 'block' }}
+            style={{ objectFit: "fill" }} // force 512×512 playback
           />
-          <canvas ref={canvasRef} style={{ display: 'none' }} />
+          <canvas ref={captureRef} style={{ display: "none" }} />
           <DefectCanvas boxes={boxes} width={512} height={512} />
         </div>
       </Card.Body>

@@ -1,3 +1,5 @@
 venv
 pyvenv.cfg
 __pycache__/
+build/
+main.spec

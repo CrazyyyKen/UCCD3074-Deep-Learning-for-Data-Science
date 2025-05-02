@@ -7,64 +7,99 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 
-from model import load_model, predict
+from model import load_faster_model, predict_faster, load_yolo8_model, predict_yolo8
 
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # allow your React dev server
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-model = None
+# Load both models at startup
+faster_model = load_faster_model("model/fasterrcnn.pth")
+yolo_model = load_yolo8_model("model/yolov8.pt")
+print("Loaded Faster-RCNN (photo) and YOLOv8 (video) models.")
 
-@app.on_event("startup")
-async def startup_event():
-    global model
-    model = load_model("model/faster_rcnn.pth")
-    print("Model loaded.")
 
-@app.websocket("/ws")
-async def websocket_endpoint(ws: WebSocket):
+@app.websocket("/ws_photo_fasterrcnn")
+async def websocket_photo_fasterrcnn(ws: WebSocket):
     await ws.accept()
-    # track the latest request ID we've seen
-    ws.state.latest_req = None
+    print("Photo client connected")
 
     try:
         while True:
-            # 1) receive and parse
-            text = await ws.receive_text()
-            payload = json.loads(text)
+            data = await ws.receive_text()
+            payload = json.loads(data)
             req_id = payload.get("reqId")
 
-            # 2) record the newest reqId
-            if req_id is not None:
-                ws.state.latest_req = req_id
+            # decode the image
+            b64 = payload["image"].split(",", 1)[-1]
+            img = Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGB")
 
-            # 3) drop any stale requests
-            if req_id is not None and req_id != ws.state.latest_req:
-                continue
-
-            # 4) decode the image
-            b64 = payload.get("image", "")
-            if "," in b64:
-                b64 = b64.split(",", 1)[1]      # strip data URL header
-            img_bytes = base64.b64decode(b64)
-            img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-
-            # 5) run inference
-            print(f"[{ws.state.latest_req}] Running inference…")
+            # inference + timing
             t0 = time.time()
-            detections = predict(model, img)
-            elapsed = (time.time() - t0) * 1000
-            print(f"Inference done in {elapsed:.0f} ms — {len(detections)} boxes")
+            results = predict_faster(faster_model, img)
+            ms = (time.time() - t0) * 1000
+            print(f"[Photo (Faster R-CNN)] inference: {ms:.0f} ms — {len(results)} boxes")
 
-            # 6) send back the results, echoing reqId
-            await ws.send_text(json.dumps({
-                "reqId":   ws.state.latest_req,
-                "results": detections
-            }))
+            # echo back the reqId so the client can match it
+            await ws.send_text(json.dumps({"reqId": req_id, "results": results}))
+    except WebSocketDisconnect:
+        print("Photo client disconnected")
+
+
+@app.websocket("/ws_photo_yolo")
+async def websocket_photo_yolo(ws: WebSocket):
+    """New photo mode (YOLOv8)."""
+    await ws.accept()
+    print("YOLO client connected")
+    try:
+        while True:
+            data = await ws.receive_text()
+            payload = json.loads(data)
+            req_id = payload.get("reqId")
+
+            b64 = payload["image"].split(",", 1)[-1]
+            img = Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGB")
+
+            t0 = time.time()
+            results = predict_yolo8(yolo_model, img)
+            ms = (time.time() - t0) * 1000
+            print(f"[Photo (YOLO) ] inference: {ms:.0f} ms — {len(results)} boxes")
+
+            await ws.send_text(json.dumps({"reqId": req_id, "results": results}))
+    except WebSocketDisconnect:
+        print("YOLO photo client disconnected")
+
+
+@app.websocket("/ws_video")
+async def websocket_video(ws: WebSocket):
+    """Video mode: use YOLOv8 per frame and log inference time."""
+    await ws.accept()
+    print("Video client connected")
+    try:
+        while True:
+            data = await ws.receive_text()
+            payload = json.loads(data)
+            # decode base64 image
+            b64 = payload["image"].split(",", 1)[-1]
+            img = Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGB")
+
+            # inference + timing
+            t0 = time.time()
+            results = predict_yolo8(yolo_model, img)
+            ms = (time.time() - t0) * 1000
+            print(f"[Video] inference: {ms:.0f} ms — {len(results)} boxes")
+
+            await ws.send_text(json.dumps({"results": results}))
 
     except WebSocketDisconnect:
-        print("Client disconnected")
+        print("Video client disconnected")
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

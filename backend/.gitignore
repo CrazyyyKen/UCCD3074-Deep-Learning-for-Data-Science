@@ -1,6 +1,6 @@
 venv
 pyvenv.cfg
 __pycache__/
-build/
+react_build/
 main.spec
 /dist/

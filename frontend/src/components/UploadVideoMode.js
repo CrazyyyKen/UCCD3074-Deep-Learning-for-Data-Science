@@ -56,7 +56,7 @@ export default function UploadVideoMode() {
 
   return (
     <Card>
-      <Card.Header>Upload Video (YOLO)</Card.Header>
+      <Card.Header>Upload Video</Card.Header>
       <Card.Body>
         <Form.Group controlId="formVideo">
           <Form.Label>Choose a shampoo‐bottle video</Form.Label>

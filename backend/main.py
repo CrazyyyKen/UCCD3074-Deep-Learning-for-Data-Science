@@ -44,7 +44,7 @@ print("Loaded Faster-RCNN and YOLOv8 models.")
 @app.websocket("/ws_photo_fasterrcnn")
 async def websocket_photo_fasterrcnn(ws: WebSocket):
     await ws.accept()
-    print("Photo client connected")
+    print("Photo client (Faster R-CNN) connected")
 
     try:
         while True:
@@ -67,14 +67,14 @@ async def websocket_photo_fasterrcnn(ws: WebSocket):
             # echo back the reqId so the client can match it
             await ws.send_text(json.dumps({"reqId": req_id, "results": results}))
     except WebSocketDisconnect:
-        print("Photo client disconnected")
+        print("Photo client (Faster R-CNN) disconnected")
 
 
 @app.websocket("/ws_photo_yolo")
 async def websocket_photo_yolo(ws: WebSocket):
     """New photo mode (YOLOv8)."""
     await ws.accept()
-    print("YOLO client connected")
+    print("Photo client (YOLOv8) connected")
     try:
         while True:
             data = await ws.receive_text()
@@ -91,7 +91,7 @@ async def websocket_photo_yolo(ws: WebSocket):
 
             await ws.send_text(json.dumps({"reqId": req_id, "results": results}))
     except WebSocketDisconnect:
-        print("YOLO photo client disconnected")
+        print("Photo client (YOLOv8) disconnected")
 
 
 @app.websocket("/ws_video")

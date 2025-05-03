@@ -12,10 +12,10 @@ import {
 import DefectCanvas from "./DefectCanvas";
 import useWebSocket from "../hooks/useWebSocket";
 
-export default function UploadPhotoModeFasterRCNN() {
+export default function UploadPhotoMode() {
   const fileRef = useRef();
   const { messages, sendMessage } = useWebSocket(
-    "ws://localhost:8000/ws_photo_fasterrcnn"
+    "ws://localhost:8000/ws_upload_photo"
   );
   const [imageUrl, setImageUrl] = useState(null);
   const [boxes, setBoxes] = useState([]);
@@ -43,7 +43,7 @@ export default function UploadPhotoModeFasterRCNN() {
     setCurrentReqId(reqId);
     setBoxes([]);
     setLoading(true);
-    sendMessage({ mode: "photo_fasterrcnn", image: imageUrl, reqId });
+    sendMessage({ mode: "upload_photo", image: imageUrl, reqId });
   };
 
   // apply only the matching response

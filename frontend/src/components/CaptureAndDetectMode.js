@@ -22,16 +22,24 @@ export default function CaptureAndDetectMode() {
   const [loading, setLoading] = useState(false);
   const [detectionDone, setDetectionDone] = useState(false);
 
-  // 1) enumerate cameras
   useEffect(() => {
-    navigator.mediaDevices.enumerateDevices().then((devs) => {
-      const vids = devs.filter((d) => d.kind === "videoinput");
-      setCameras(vids);
-      if (vids.length && !selectedCamera) {
-        setSelectedCamera(vids[0].deviceId);
-      }
-    });
-  }, [selectedCamera]);
+    // 1) ask once for any camera permission...
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        stream.getTracks().forEach(t => t.stop());
+        // now you can enumerate with labels:
+        return navigator.mediaDevices.enumerateDevices();
+      })
+      .then(devs => {
+        const vids = devs.filter(d => d.kind === "videoinput");
+        setCameras(vids);
+        if (vids.length && !selectedCamera) {
+          setSelectedCamera(vids[0].deviceId);
+        }
+      })
+      .catch(err => console.error("Need camera permission first", err));
+  }, []);
+  
 
   // 2) start/stop camera on selection
   useEffect(() => {

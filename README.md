@@ -13,6 +13,7 @@
 
 - **Prototype System (.exe)**  
   Download the Windows executable of the prototype system.  
+  On the release page, scroll down to the "Assets" section and click on the `.exe` file to download.  
   [Download Executable from GitHub Releases](https://github.com/CrazyyyKen/UCCD3074-Deep-Learning-for-Data-Science/releases/tag/v1.0.0-alpha)
 
 - **Dataset (Roboflow)**  

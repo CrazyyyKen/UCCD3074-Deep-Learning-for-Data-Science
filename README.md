@@ -21,7 +21,7 @@
   [View Dataset on Roboflow](https://universe.roboflow.com/dent-ydn9e/defect-detection-rhju6/dataset/6)
 
 - **Trained Model (Faster R-CNN)**  
-  The fine-tuned PyTorch model (`.pth`) used in this project. Stored in the GitHub repository under the `models/` folder.  
+  The fine-tuned PyTorch model (`.pth`) used in this project. Stored in the GitHub repository under the `model/` folder.  
   [Download Trained Model (GitHub Repository)](https://github.com/CrazyyyKen/UCCD3074-Deep-Learning-for-Data-Science/tree/main/backend/model)
 
 - **Demonstration Video**  
